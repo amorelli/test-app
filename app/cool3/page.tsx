@@ -2,24 +2,27 @@
 
 import React, { useState, useEffect, useRef } from 'react'
 import Image from "next/image";
-// import { remove } from 'lodash';
+import { remove } from 'lodash';
 
 export default function Home() {
   const canvasRef = useRef(null);
-  const canvas2Ref = useRef(null);
   const [numPatricles, setNumParticles] = useState(0);
-  const [particles, setParticles] = useState([]);
-  const [resetGame, setResetGame] = useState(0); 
 
   const clamp = (value, min, max) => Math.max(Math.min(value, max), min);
+
+  const make2dArray = (cols, rows) => {
+    const arr = new Array(cols);
+    for (let i = 0; i < arr.length; i++) {
+        arr[i] = new Array(rows);
+    }
+    return arr;
+  }
 
   useEffect(() => {
     // Setup
     const canvas = canvasRef.current;
-    const canvas2 = canvas2Ref.current;
     console.log('mount', canvas);
     const ctx = canvas.getContext('2d');
-    const ctx2 = canvas2.getContext('2d');
 
     // Constants
     const gravity = 0.2;
@@ -30,7 +33,8 @@ export default function Home() {
     let lastTick = performance.now();
     let lastRender = lastTick;
     let tickLength = 10; // tick frequency (50ms per tick = 20hz) 
-    const grid = new Array(canvas.width * canvas.height).fill(0);
+
+    // const grid = new Array(canvas.width * canvas.height).fill(0);
     
     /**
      * Helper functions
@@ -55,6 +59,7 @@ export default function Home() {
     /**
      * Update state and draw
      */
+
     function queueUpdates(numTicks) {
       for (let i = 0; i < numTicks; i++) {
         lastTick += tickLength; // Now lastTick is this tick.
@@ -63,8 +68,16 @@ export default function Home() {
     }
 
     function updateParticles(lastTick) {
+      const particlesSet = new Set(particles);
+      // console.log('update', particlesSet);
+
+      // Choose a random direction for each particle
+      
+      // let dx = 10 * getSign();
+      // let dy = 10 * getSign();
       for (let particle of particles) {
         const getSign = () => Math.random() > 0.5 ? -1 : 1; 
+
         if (!particle.dx) {
           // Choose a random direction and speed for each particle's movement
           // Store the movement in the particle so they continue to move in that direction on each update
@@ -87,40 +100,27 @@ export default function Home() {
         if (particle.x + particle.dx > canvas.width - cellSize || particle.x + particle.dx < cellSize) {
           // console.log('hit right/left'); 
           particle.dx = -particle.dx;
+          // particle.dx = 0;
         }
         if (particle.y + particle.dy > canvas.height - cellSize || particle.y + particle.dy < cellSize) {
           // console.log('hit top/bottom');
           particle.dy = -particle.dy;
+          // particle.dy = 0;
         }
 
+        // particle.y += gravity + Math.random();
         particle.x += particle.dx;
         particle.y += particle.dy;
+
+        // console.log(particle.dx, particle.dy);
       }
     }
-    let drawsOnSecondCanvas = 0;
+
     function draw(tFrame) {
-      // const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-
-      // console.log('imageData', imageData);
-      // console.log(tFrame)
-
-
-      
-      // Captures image data from the canvas. Can be passed to a new canvas to create an image. Can also use .toDataUrl() to get some base64 image data. Can maybe use this to create background image that updates every 1000ms or so.
-
       ctx.clearRect(0, 0, canvas.width, canvas.height);
-      // ctx2.clearRect(0, 0, canvas2.width, canvas2.height);
-
-      
       for (let particle of particles) {
-        if (Math.floor(tFrame) % 39 === 0) {
-          ctx2.drawImage(canvas, 0,0);
-          drawsOnSecondCanvas++;
-        }
         drawParticle(particle);
       }
-      // console.log('drawsOnSecondCanvas', drawsOnSecondCanvas);
-      console.log('second canvas draws every ', Math.floor(tFrame) / drawsOnSecondCanvas, ' frames');
       setNumParticles(particles.length);
     }
 
@@ -147,9 +147,19 @@ export default function Home() {
      * Event handlers
      */
     const createParticleOnMouseLocation = (e) => {
+      const canvasBounds = canvas.getBoundingClientRect();
       const x = e.clientX - canvas.getBoundingClientRect().left;
-      const y = e.clientY - canvas.getBoundingClientRect().top; 
+      const y = e.clientY - canvas.getBoundingClientRect().top;
+      console.log(x, y);
+      console.log(canvasBounds);
+
+      // let sign = 1;
+      const getSign = () => Math.random() > 0.5 ? -1 : 1;   
+        // let dx = 10 * sign;
+        // sign = Math.random() > 0.5 ? -1 : 1; 
+        // let dy = 10 * sign;
       const newParticle = createParticle(x, y);
+      console.log('create particle', newParticle);
       particles.push(newParticle);
     }
 
@@ -177,27 +187,15 @@ export default function Home() {
       canvas.removeEventListener('mousemove', createParticleOnMouseLocation);
       canvas.removeEventListener('mouseleave', (e) => {});
     };
-  }, [canvasRef, resetGame]);
+  }, [canvasRef]);
 
 
 
   return (
-    <div className="overflow-hidden bg-dark">
-      <h2 className="mt-2 text-3xl font-bold tracking-tight text-indigo-900 sm:text-4xl">Particles</h2>
+    <div>
+      <h2>Particles</h2>
       <p>Number of Particles: {numPatricles}</p>
-      <button type="submit" className="rounded-md bg-indigo-600 px-3 py-2 font-semibold text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
-      onClick={() => {
-        // let imageData = canvasRef.current.getImageData(0, 0, canvasRef.current.width, canvasRef.current.height);
-        // console.log('imageData', imageData);
-        setParticles([]);
-        setResetGame(prev => prev + 1);
-        }}
-      >
-        Reset
-      </button> 
-
-      <canvas ref={canvasRef} style={{backgroundColor: '#000', outline: '1px solid red'}} id="gameCanvas" width="640" height="300"></canvas>
-      <canvas ref={canvas2Ref} style={{backgroundColor: '#000', outline: '1px solid red'}} id="gameCanvas2" width="640" height="300"></canvas>
+      <canvas ref={canvasRef} id="gameCanvas" width="640" height="480"></canvas>
     </div>
   );
 }
