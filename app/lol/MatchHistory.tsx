@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import axios from 'axios';
 
 interface MatchHistoryProps {
-  summonerName: string;
+  riotIdGameName: string;
   region: string;
 }
 
@@ -25,7 +25,7 @@ interface Summoner {
 
 const API_KEY = process.env.NEXT_PUBLIC_RIOT_API_KEY;
 
-const MatchHistory: React.FC<MatchHistoryProps> = ({ summonerName, region }) => {
+const MatchHistory: React.FC<MatchHistoryProps> = ({ riotIdGameName, region }) => {
   const [matches, setMatches] = useState<Match[]>([]);
   const [summoner, setSummoner] = useState<Summoner | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -50,7 +50,7 @@ const MatchHistory: React.FC<MatchHistoryProps> = ({ summonerName, region }) => 
 
   return (
     <div>
-      <h1>Match History for {summonerName}</h1>
+      <h1>Match History for {riotIdGameName}</h1>
       <div style={{ display: 'flex', gap: '10px' }}>
         {/* <button onClick={fetchMatchHistory} type="button">Fetch Match History</button> */}
         <button onClick={fetchSummonerData} type="button">Fetch Summoner Info</button>

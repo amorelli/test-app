@@ -8,13 +8,12 @@ export async function GET(request: Request) {
     return Response.json({ error: 'PUUID and region are required' }, { status: 400 });
   }
 
-  // Convert region to routing value (e.g., na1 -> americas)
   const routingValue = getRoutingValue(region.toLowerCase());
 
   try {
-    // First, get list of match IDs
+    // Get last 10 match IDs
     const matchIdsResponse = await fetch(
-      `https://${routingValue}.api.riotgames.com/lol/match/v5/matches/by-puuid/${puuid}/ids?start=0&count=1&api_key=${apiKey}`
+      `https://${routingValue}.api.riotgames.com/lol/match/v5/matches/by-puuid/${puuid}/ids?start=0&count=10&api_key=${apiKey}`
     );
     const matchIds = await matchIdsResponse.json();
 
@@ -22,14 +21,17 @@ export async function GET(request: Request) {
       return Response.json({ matches: [] });
     }
 
-    // Get detailed info for the most recent match
-    const matchDetailsResponse = await fetch(
-      `https://${routingValue}.api.riotgames.com/lol/match/v5/matches/${matchIds[0]}?api_key=${apiKey}`
+    // Fetch details for all matches in parallel
+    const matchDetailsPromises = matchIds.map(matchId => 
+      fetch(`https://${routingValue}.api.riotgames.com/lol/match/v5/matches/${matchId}?api_key=${apiKey}`)
+        .then(res => res.json())
     );
-    const matchDetails = await matchDetailsResponse.json();
 
+    const matchDetails = await Promise.all(matchDetailsPromises);
     return Response.json({ matches: matchDetails });
+
   } catch (error) {
+    console.error('Error fetching matches:', error);
     return Response.json({ error: 'Failed to fetch match history' }, { status: 500 });
   }
 }

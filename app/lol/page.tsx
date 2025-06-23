@@ -6,7 +6,7 @@ import MatchHistory from './MatchHistory';
 const App: React.FC = () => {
   return (
     <div>
-      <MatchHistory summonerName="Milpool" region="NA1" />
+      <MatchHistory riotIdGameName="Milpool" region="NA1" />
     </div>
   );
 };
