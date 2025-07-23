@@ -3,11 +3,13 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import LoadingSpinner from '@/app/components/LoadingSpinner';
+import MatchOutcomeIcon from '@/app/components/MatchOutcomeIcon';
 
 interface PageProps {
   params: {
     region: string;
     riotIdGameName: string;
+    tagline: string;
   }
 }
 
@@ -43,27 +45,36 @@ interface MatchParticipant {
   deaths: number;
   kills: number;
   puuid: string;
-  summoner1Id: number;
-  summoner2Id: number;
+  summoner1Id?: number;
+  summoner2Id?: number;
   riotIdGameName: string;
   teamId: number;
   win: boolean;
   teamParticipantId?: string;
-  totalTimeCCDealt: number;
-  timeCCingOthers: number;
+  totalTimeCCDealt?: number;
+  timeCCingOthers?: number;
+  totalDamageDealtToChampions?: number;
+  totalDamageTaken?: number;
+  totalHeal?: number;
 }
 
 interface Team {
   teamId: number;
   win: boolean;
-  objectives: {
-    champion: {
+  objectives?: {
+    champion?: {
       kills: number;
     };
-    tower: {
+    tower?: {
       kills: number;
     };
-    inhibitor: {
+    inhibitor?: {
+      kills: number;
+    };
+    baron?: {
+      kills: number;
+    };
+    dragon?: {
       kills: number;
     };
   };
@@ -80,14 +91,22 @@ interface SortConfig {
 }
 
 const calculateEffectivenessScore = (participant: MatchParticipant) => {
+  // Ensure all properties exist with default values
+  const kills = participant.kills || 0;
+  const assists = participant.assists || 0;
+  const deaths = participant.deaths || 0;
+  const totalDamageDealtToChampions = participant.totalDamageDealtToChampions || 0;
+  const totalDamageTaken = participant.totalDamageTaken || 0;
+  const totalHeal = participant.totalHeal || 0;
+  
   // KDA impact (kills and assists are positive, deaths are negative)
-  const kdaScore = (participant.kills * 3 + participant.assists - participant.deaths * 2);
+  const kdaScore = (kills * 3 + assists - deaths * 2);
   
   // Damage contribution (damage dealt vs damage taken ratio)
-  const damageScore = participant.totalDamageDealtToChampions / Math.max(1, participant.totalDamageTaken) * 100;
+  const damageScore = totalDamageDealtToChampions / Math.max(1, totalDamageTaken) * 100;
   
   // Healing contribution
-  const healingScore = participant.totalHeal / 100;
+  const healingScore = totalHeal / 100;
   
   // Combine scores with weights
   const totalScore = (kdaScore * 0.4) + (damageScore * 0.4) + (healingScore * 0.2);
@@ -99,19 +118,19 @@ const calculateEffectivenessScore = (participant: MatchParticipant) => {
 const getBestInColumn = (participants: MatchParticipant[], column: string) => {
   switch (column) {
     case 'kda':
-      return Math.max(...participants.map(p => (p.kills + p.assists) / Math.max(1, p.deaths)));
+      return Math.max(...participants.map(p => ((p.kills || 0) + (p.assists || 0)) / Math.max(1, (p.deaths || 0))));
     case 'damageDealt':
-      return Math.max(...participants.map(p => p.totalDamageDealtToChampions));
+      return Math.max(...participants.map(p => p.totalDamageDealtToChampions || 0));
     case 'healing':
-      return Math.max(...participants.map(p => p.totalHeal));
+      return Math.max(...participants.map(p => p.totalHeal || 0));
     case 'damageTaken':
-      return Math.max(...participants.map(p => p.totalDamageTaken));
+      return Math.max(...participants.map(p => p.totalDamageTaken || 0));
     case 'effectiveness':
       return Math.max(...participants.map(p => calculateEffectivenessScore(p)));
     case 'ccTime':
-      return Math.max(...participants.map(p => p.totalTimeCCDealt));
+      return Math.max(...participants.map(p => p.totalTimeCCDealt || 0));
     case 'ccingOthers':
-      return Math.max(...participants.map(p => p.timeCCingOthers));
+      return Math.max(...participants.map(p => p.timeCCingOthers || 0));
     default:
       return null;
   }
@@ -211,7 +230,7 @@ const SummonerPage = ({ params }: PageProps) => {
         return;
       }
       
-      setMatches(data.matches.filter(match => match.info));
+      setMatches(data.matches.filter((match: any) => match.info));
       console.log('matches', data.matches);
     } catch (err) {
       setError('Failed to fetch match history');
@@ -357,14 +376,18 @@ const SummonerPage = ({ params }: PageProps) => {
                     teamId === 100 ? 'bg-blue-900' : 'bg-red-900'
                   } bg-opacity-50`}
                 >
+                  <MatchOutcomeIcon
+                    imageSrc={teamStats.won ? `../images/teemo-happy.jpg` : `../images/amumu-sad.jpg`}
+                    text={teamStats.won ? "Win" : "Loss"}
+                    />
                   <h3 className="font-semibold">
-                    {teamId === 100 ? 'Blue' : 'Red'} Team 
+                    {teamId === 100 ? 'Blue' : 'Red'} Team
                     {teamStats.won && ' (Winner)'}
                   </h3>
                   <div className="flex flex-col gap-1">
-                    <span>Champion Kills: {teamStats.objectives.champion.kills}</span>
-                    <span>Tower Kills: {teamStats.objectives.tower.kills}</span>
-                    <span>Inhibitor Kills: {teamStats.objectives.inhibitor.kills}</span>
+                    <span>Champion Kills: {teamStats.objectives?.champion?.kills || 0}</span>
+                    <span>Tower Kills: {teamStats.objectives?.tower?.kills || 0}</span>
+                    <span>Inhibitor Kills: {teamStats.objectives?.inhibitor?.kills || 0}</span>
                     {parties.length > 0 && (
                       <div className="mt-2">
                         <span className="font-semibold">Parties:</span>
@@ -433,8 +456,8 @@ const SummonerPage = ({ params }: PageProps) => {
                     className={`text-left p-2 border-b-2 border-gray-300 text-white cursor-pointer hover:bg-gray-700 ${
                       sortConfigs[index]?.column === 'damageDealt' ? 'bg-gray-700' : ''
                     }`}
-                    onClick={() => handleSort(index, 'damageDealt', (a, b) => 
-                      b.totalDamageDealtToChampions - a.totalDamageDealtToChampions
+                    onClick={() => handleSort(index, 'damageDealt', (a, b) =>
+                      (b.totalDamageDealtToChampions || 0) - (a.totalDamageDealtToChampions || 0)
                     )}
                   >
                     Damage Dealt
@@ -448,8 +471,8 @@ const SummonerPage = ({ params }: PageProps) => {
                     className={`text-left p-2 border-b-2 border-gray-300 text-white cursor-pointer hover:bg-gray-700 ${
                       sortConfigs[index]?.column === 'healing' ? 'bg-gray-700' : ''
                     }`}
-                    onClick={() => handleSort(index, 'healing', (a, b) => 
-                      b.totalHeal - a.totalHeal
+                    onClick={() => handleSort(index, 'healing', (a, b) =>
+                      (b.totalHeal || 0) - (a.totalHeal || 0)
                     )}
                   >
                     Total Healing
@@ -463,8 +486,8 @@ const SummonerPage = ({ params }: PageProps) => {
                     className={`text-left p-2 border-b-2 border-gray-300 text-white cursor-pointer hover:bg-gray-700 ${
                       sortConfigs[index]?.column === 'damageTaken' ? 'bg-gray-700' : ''
                     }`}
-                    onClick={() => handleSort(index, 'damageTaken', (a, b) => 
-                      b.totalDamageTaken - a.totalDamageTaken
+                    onClick={() => handleSort(index, 'damageTaken', (a, b) =>
+                      (b.totalDamageTaken || 0) - (a.totalDamageTaken || 0)
                     )}
                   >
                     Damage Taken
@@ -478,11 +501,11 @@ const SummonerPage = ({ params }: PageProps) => {
                     className={`text-left p-2 border-b-2 border-gray-300 text-white cursor-pointer hover:bg-gray-700 ${
                       sortConfigs[index]?.column === 'ccTime' ? 'bg-gray-700' : ''
                     }`}
-                    onClick={() => handleSort(index, 'ccTime', (a, b) => 
-                      b.totalTimeCCDealt - a.totalTimeCCDealt
+                    onClick={() => handleSort(index, 'ccTime', (a, b) =>
+                      (b.totalTimeCCDealt || 0) - (a.totalTimeCCDealt || 0)
                     )}
                   >
-                    Time Spent CC'd
+                    Time Spent CC&apos;d
                     <span className="ml-2">
                       {sortConfigs[index]?.column === 'ccTime' && (
                         sortConfigs[index].direction === 'asc' ? '↑' : '↓'
@@ -493,8 +516,8 @@ const SummonerPage = ({ params }: PageProps) => {
                     className={`text-left p-2 border-b-2 border-gray-300 text-white cursor-pointer hover:bg-gray-700 ${
                       sortConfigs[index]?.column === 'ccingOthers' ? 'bg-gray-700' : ''
                     }`}
-                    onClick={() => handleSort(index, 'ccingOthers', (a, b) => 
-                      b.timeCCingOthers - a.timeCCingOthers
+                    onClick={() => handleSort(index, 'ccingOthers', (a, b) =>
+                      (b.timeCCingOthers || 0) - (a.timeCCingOthers || 0)
                     )}
                   >
                     CC Time Dealt
@@ -522,7 +545,6 @@ const SummonerPage = ({ params }: PageProps) => {
                 </tr>
               </thead>
               <tbody>
-                {console.log('match info', match.info)}
                 {match.info.participants.map((participant) => (
                   <tr 
                     key={participant.puuid} 
@@ -554,42 +576,42 @@ const SummonerPage = ({ params }: PageProps) => {
                         ? 'text-yellow-300 font-bold'
                         : ''
                     }`}>
-                      {participant.kills}/{participant.deaths}/{participant.assists}
+                      {participant.kills || 0}/{participant.deaths || 0}/{participant.assists || 0}
                     </td>
                     <td className={`p-2 border-b border-gray-600 text-white ${
-                      participant.totalDamageDealtToChampions === getBestInColumn(match.info.participants, 'damageDealt')
+                      (participant.totalDamageDealtToChampions || 0) === getBestInColumn(match.info.participants, 'damageDealt')
                         ? 'text-yellow-300 font-bold'
                         : ''
                     }`}>
-                      {participant.totalDamageDealtToChampions}
+                      {participant.totalDamageDealtToChampions || 0}
                     </td>
                     <td className={`p-2 border-b border-gray-600 text-white ${
-                      participant.totalHeal === getBestInColumn(match.info.participants, 'healing')
+                      (participant.totalHeal || 0) === getBestInColumn(match.info.participants, 'healing')
                         ? 'text-yellow-300 font-bold'
                         : ''
                     }`}>
-                      {participant.totalHeal}
+                      {participant.totalHeal || 0}
                     </td>
                     <td className={`p-2 border-b border-gray-600 text-white ${
-                      participant.totalDamageTaken === getBestInColumn(match.info.participants, 'damageTaken')
+                      (participant.totalDamageTaken || 0) === getBestInColumn(match.info.participants, 'damageTaken')
                         ? 'text-yellow-300 font-bold'
                         : ''
                     }`}>
-                      {participant.totalDamageTaken}
+                      {participant.totalDamageTaken || 0}
                     </td>
                     <td className={`p-2 border-b border-gray-600 text-white ${
                       participant.totalTimeCCDealt === getBestInColumn(match.info.participants, 'ccTime')
                         ? 'text-yellow-300 font-bold'
                         : ''
                     }`}>
-                      {participant.totalTimeCCDealt}s
+                      {(participant.totalTimeCCDealt || 0)}s
                     </td>
                     <td className={`p-2 border-b border-gray-600 text-white ${
                       participant.timeCCingOthers === getBestInColumn(match.info.participants, 'ccingOthers')
                         ? 'text-yellow-300 font-bold'
                         : ''
                     }`}>
-                      {participant.timeCCingOthers}s
+                      {(participant.timeCCingOthers || 0)}s
                     </td>
                     <td className={`p-2 border-b border-gray-600 text-white ${
                       calculateEffectivenessScore(participant) === getBestInColumn(match.info.participants, 'effectiveness')

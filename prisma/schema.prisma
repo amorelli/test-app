@@ -1,0 +1,94 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model Summoner {
+  id                String   @id @default(cuid())
+  puuid            String   @unique
+  riotIdGameName   String
+  tagline          String
+  region           String
+  summonerLevel    Int
+  profileIconId    Int
+  lastUpdated      DateTime @updatedAt
+  createdAt        DateTime @default(now())
+  
+  // Relations
+  matchParticipants MatchParticipant[]
+  
+  @@unique([riotIdGameName, tagline])
+  @@map("summoners")
+}
+
+model Match {
+  id           String   @id // This will be the Riot match ID
+  gameMode     String
+  gameCreation DateTime
+  gameDuration Int      // in seconds
+  gameVersion  String?
+  queueId      Int
+  createdAt    DateTime @default(now())
+  
+  // Relations
+  participants MatchParticipant[]
+  teams        MatchTeam[]
+  
+  @@map("matches")
+}
+
+model MatchParticipant {
+  id                              String  @id @default(cuid())
+  matchId                         String
+  summonerId                      String
+  championId                      Int
+  championName                    String
+  teamId                          Int
+  win                             Boolean
+  kills                           Int
+  deaths                          Int
+  assists                         Int
+  totalDamageDealtToChampions     Int
+  totalDamageTaken                Int
+  totalHeal                       Int
+  goldEarned                      Int
+  totalMinionsKilled              Int
+  neutralMinionsKilled            Int
+  visionScore                     Int?
+  timeCCingOthers                 Int?
+  totalTimeCCDealt                Int?
+  
+  // Relations
+  match    Match    @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  summoner Summoner @relation(fields: [summonerId], references: [id], onDelete: Cascade)
+  
+  @@unique([matchId, summonerId])
+  @@map("match_participants")
+}
+
+model MatchTeam {
+  id             String  @id @default(cuid())
+  matchId        String
+  teamId         Int
+  win            Boolean
+  baronKills     Int
+  dragonKills    Int
+  towerKills     Int
+  inhibitorKills Int
+  
+  // Relations
+  match Match @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  
+  @@unique([matchId, teamId])
+  @@map("match_teams")
+}
