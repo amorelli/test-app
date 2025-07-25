@@ -92,3 +92,17 @@ model MatchTeam {
   @@unique([matchId, teamId])
   @@map("match_teams")
 }
+
+model Champion {
+  id          Int      @id // This will be the Riot champion ID
+  name        String   @unique
+  key         String   @unique // Champion key (e.g., "Aatrox", "Ahri")
+  title       String
+  thumbnailUrl String?  // URL to the champion thumbnail
+  splashUrl   String?  // URL to the champion splash art
+  version     String   // Data Dragon version
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@map("champions")
+}
